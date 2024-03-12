@@ -14,24 +14,6 @@ public class UserService : IUserService
         _mapper = mapper;//useToConvertModelsIntoDTO
     }
 
-    public async Task<ServiceResponse<User>> DeleteUserById(int id)
-    {
-        ServiceResponse<User> sr = new ServiceResponse<User>();
-        var listUser = await _context.userTable.ToListAsync();
-        User? deletedUser = null;
-        foreach (User currUser in listUser)
-        {
-            if (currUser.Id == id)
-            {
-                deletedUser = currUser;
-            }
-        }
-        listUser.Remove(deletedUser);
-        await _context.SaveChangesAsync();
-        sr.data = deletedUser;
-        return sr;
-    }
-
     public async Task<ServiceResponse<List<User>>> GetAllUsers()
     {
         ServiceResponse<List<User>> sr = new ServiceResponse<List<User>>();
@@ -113,6 +95,27 @@ public class UserService : IUserService
                 throw new Exception($"User with Id {updatedUser.Id} Not Found.");
             }
             await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            sr.success = false;
+            sr.message = ex.Message;
+        }
+        return sr;
+    }
+
+    public async Task<ServiceResponse<User>> DeleteUserById(int id)
+    {
+        ServiceResponse<User> sr = new ServiceResponse<User>();
+        try
+        {
+            User? deletedUser = await _context.userTable.FirstOrDefaultAsync(u => u.Id == id);
+            if (deletedUser is null)
+                throw new Exception($"User with Id {id} doesn't Exists.");
+
+            _context.userTable.Remove(deletedUser);
+            await _context.SaveChangesAsync();
+            sr.data = deletedUser;
         }
         catch (Exception ex)
         {
