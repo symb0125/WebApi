@@ -5,20 +5,19 @@ using WebApi.Dtos;
 public class UserService : IUserService
 {
     private static User defaultUser = new User();
-    private static List<User> listUser = new List<User>{
-            new User{Id=0, name = "pratik"},
-            new User{Id=1, name = "symb"}
-        };
-
     private readonly IMapper _mapper;
-    public UserService(IMapper mapper)
+    private readonly DataContext _context;
+
+    public UserService(IMapper mapper, DataContext context)
     {
-        _mapper = mapper;
+        _context = context;//useToInteractWithDB
+        _mapper = mapper;//useToConvertModelsIntoDTO
     }
 
     public async Task<ServiceResponse<User>> DeleteUserById(int id)
     {
         ServiceResponse<User> sr = new ServiceResponse<User>();
+        var listUser = await _context.userTable.ToListAsync();
         User? deletedUser = null;
         foreach (User currUser in listUser)
         {
@@ -28,6 +27,7 @@ public class UserService : IUserService
             }
         }
         listUser.Remove(deletedUser);
+        await _context.SaveChangesAsync();
         sr.data = deletedUser;
         return sr;
     }
@@ -35,14 +35,16 @@ public class UserService : IUserService
     public async Task<ServiceResponse<List<User>>> GetAllUsers()
     {
         ServiceResponse<List<User>> sr = new ServiceResponse<List<User>>();
-        if (sr.data == null || sr.data.Count == 0) sr.message = "List is Empty.";
+        var listUser = await _context.userTable.ToListAsync();
         sr.data = listUser;
+        if (sr.data == null || sr.data.Count == 0) { sr.message = "List is Empty."; }
         return sr;
     }
 
     public async Task<ServiceResponse<User>> GetUserById(int id)
     {
         ServiceResponse<User> sr = new ServiceResponse<User>();
+        var listUser = await _context.userTable.ToListAsync();
         try
         {
             bool isFound = false;
@@ -74,8 +76,9 @@ public class UserService : IUserService
         try
         {
             var user = _mapper.Map<User>(newUser);
-            listUser.Add(user);
-            sr.data = listUser;
+            _context.userTable.Add(user);
+            await _context.SaveChangesAsync();
+            sr.data = await _context.userTable.ToListAsync();
         }
         catch (Exception ex)
         {
@@ -92,6 +95,7 @@ public class UserService : IUserService
         {
             User? oldUser = null;
             var updatedUser = _mapper.Map<User>(updateUser);
+            var listUser = await _context.userTable.ToListAsync();
             foreach (User currUser in listUser)
             {
                 if (currUser.Id == updatedUser.Id)
@@ -104,15 +108,11 @@ public class UserService : IUserService
                     break;
                 }
             }
-            if (oldUser != null)
-            {
-                oldUser = new User(updatedUser);
-                sr.data = updatedUser;
-            }
-            else
+            if (oldUser is null)
             {
                 throw new Exception($"User with Id {updatedUser.Id} Not Found.");
             }
+            await _context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
